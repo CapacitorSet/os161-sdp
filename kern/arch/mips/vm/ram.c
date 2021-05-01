@@ -38,6 +38,16 @@ vaddr_t firstfree;   /* first free virtual address; set by start.S */
 static paddr_t firstpaddr;  /* address of first free physical page */
 static paddr_t lastpaddr;   /* one past end of last free physical page */
 
+static unsigned char memory_bitmap[(512*1024*1024)/PAGE_SIZE];
+
+static unsigned char bitmap_peek(long unsigned page) {
+	return memory_bitmap[page];
+}
+
+static void bitmap_set(long unsigned page, unsigned char value) {
+	memory_bitmap[page] = value;
+}
+
 /*
  * Called very early in system boot to figure out how much physical
  * RAM is available.
@@ -94,19 +104,35 @@ ram_bootstrap(void)
 paddr_t
 ram_stealmem(unsigned long npages)
 {
-	size_t size;
-	paddr_t paddr;
-
-	size = npages * PAGE_SIZE;
+	size_t size = npages * PAGE_SIZE;
 
 	if (firstpaddr + size > lastpaddr) {
 		return 0;
 	}
 
-	paddr = firstpaddr;
-	firstpaddr += size;
+	unsigned long page;
+	for (page = firstpaddr / PAGE_SIZE; page < lastpaddr / PAGE_SIZE; page++) {
+		// Search for a free page
+		if (bitmap_peek(page))
+			continue;
+		// Search for npages free pages
+		char success = 1;
+		for (unsigned long endpage = page; endpage < page + npages; endpage++)
+			success |= !bitmap_peek(page);
 
-	return paddr;
+		if (success) {
+			// Mark pages as used
+			// We store the amount of pages in the first item so that we can free() without knowing the allocation size
+			// 255 helps us detect free()'s that are not aligned with the original alloc
+			for (paddr_t wpage = page; wpage < page + npages; wpage++)
+				bitmap_set(wpage, 255);
+			bitmap_set(page, npages);
+			// kprintf("ram_stealmem: page=%lu\n", page);
+			return page * PAGE_SIZE;
+		}
+	}
+
+	return 0; // Allocation failure
 }
 
 /*
@@ -150,4 +176,25 @@ ram_getfirstfree(void)
 	ret = firstpaddr;
 	firstpaddr = lastpaddr = 0;
 	return ret;
+}
+
+/*
+ * Free memory from a given offset that must be page-aligned.
+ */
+void
+ram_free(paddr_t offset)
+{
+	unsigned long npages = bitmap_peek(offset / PAGE_SIZE);
+	// kprintf("ram_free: free %lu pages at page=%d\n", npages, offset/PAGE_SIZE);
+	for (paddr_t page = offset / PAGE_SIZE; page < (offset / PAGE_SIZE) + npages; page++) {
+		if (bitmap_peek(page) == 0) {
+			kprintf("[!] ram_free: double free of page=%d\n", page);
+			continue;
+		}
+		if (bitmap_peek(page) == 255) {
+			kprintf("[!] ram_free: misaligned free for page=%d\n", page);
+			break;
+		}
+		bitmap_set(page, 0);
+	}
 }
