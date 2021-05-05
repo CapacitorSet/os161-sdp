@@ -79,6 +79,7 @@ struct lock {
         // (don't forget to mark things volatile as needed)
 
         struct semaphore *sem;
+        const struct thread *owner;
 };
 
 struct lock *lock_create(const char *name);
