@@ -81,6 +81,7 @@ struct lock {
 	struct wchan *wchan;
 	struct spinlock spinlock;
         volatile unsigned char is_free; // Equivalent to a sem counter but capped at 1
+        const struct thread *owner;
 };
 
 struct lock *lock_create(const char *name);

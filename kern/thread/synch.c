@@ -207,6 +207,7 @@ lock_acquire(struct lock *lock)
         }
         KASSERT(lock->is_free > 0);
         lock->is_free--;
+        lock->owner = curthread;
 	spinlock_release(&lock->spinlock);
 
 	/* Call this (atomically) once the lock is acquired */
@@ -221,6 +222,7 @@ lock_release(struct lock *lock)
 
         // Write this
 
+        KASSERT(lock_do_i_hold(lock));
 	spinlock_acquire(&lock->spinlock);
 
         lock->is_free++;
@@ -233,11 +235,7 @@ lock_release(struct lock *lock)
 bool
 lock_do_i_hold(struct lock *lock)
 {
-        // Write this
-
-        (void)lock;  // suppress warning until code gets written
-
-        return true; // dummy until code gets written
+        return lock->owner == curthread;
 }
 
 ////////////////////////////////////////////////////////////
