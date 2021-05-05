@@ -158,6 +158,8 @@ lock_create(const char *name)
 
         // add stuff here as needed
 
+        lock->sem = sem_create(kstrdup(name), 1);
+
         return lock;
 }
 
@@ -167,6 +169,7 @@ lock_destroy(struct lock *lock)
         KASSERT(lock != NULL);
 
         // add stuff here as needed
+        sem_destroy(lock->sem);
 
         kfree(lock->lk_name);
         kfree(lock);
@@ -180,7 +183,7 @@ lock_acquire(struct lock *lock)
 
         // Write this
 
-        (void)lock;  // suppress warning until code gets written
+        P(lock->sem);
 
 	/* Call this (atomically) once the lock is acquired */
 	//HANGMAN_ACQUIRE(&curthread->t_hangman, &lock->lk_hangman);
@@ -194,7 +197,7 @@ lock_release(struct lock *lock)
 
         // Write this
 
-        (void)lock;  // suppress warning until code gets written
+        V(lock->sem);
 }
 
 bool
