@@ -158,6 +158,16 @@ lock_create(const char *name)
 
         // add stuff here as needed
 
+        lock->wchan = wchan_create(lock->lk_name);
+	if (lock->wchan == NULL) {
+		kfree(lock->lk_name);
+		kfree(lock);
+		return NULL;
+	}
+
+	spinlock_init(&lock->spinlock);
+        lock->is_free = 1;
+
         return lock;
 }
 
@@ -167,6 +177,8 @@ lock_destroy(struct lock *lock)
         KASSERT(lock != NULL);
 
         // add stuff here as needed
+	spinlock_cleanup(&lock->spinlock);
+	wchan_destroy(lock->wchan);
 
         kfree(lock->lk_name);
         kfree(lock);
@@ -180,7 +192,22 @@ lock_acquire(struct lock *lock)
 
         // Write this
 
-        (void)lock;  // suppress warning until code gets written
+        /*
+         * May not block in an interrupt handler.
+         *
+         * For robustness, always check, even if we can actually
+         * complete the P without blocking.
+         */
+        KASSERT(curthread->t_in_interrupt == false);
+
+	/* Use the semaphore spinlock to protect the wchan as well. */
+	spinlock_acquire(&lock->spinlock);
+        while (lock->is_free == 0) {
+		wchan_sleep(lock->wchan, &lock->spinlock);
+        }
+        KASSERT(lock->is_free > 0);
+        lock->is_free--;
+	spinlock_release(&lock->spinlock);
 
 	/* Call this (atomically) once the lock is acquired */
 	//HANGMAN_ACQUIRE(&curthread->t_hangman, &lock->lk_hangman);
@@ -194,7 +221,13 @@ lock_release(struct lock *lock)
 
         // Write this
 
-        (void)lock;  // suppress warning until code gets written
+	spinlock_acquire(&lock->spinlock);
+
+        lock->is_free++;
+        KASSERT(lock->is_free > 0);
+	wchan_wakeone(lock->wchan, &lock->spinlock);
+
+	spinlock_release(&lock->spinlock);
 }
 
 bool
