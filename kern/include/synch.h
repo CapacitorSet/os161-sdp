@@ -34,8 +34,13 @@
  * Header file for synchronization primitives.
  */
 
-
+#include <opt-locks_sem.h>
+#include <opt-locks_wchan.h>
 #include <spinlock.h>
+
+#if !(OPT_LOCKS_SEM ^ OPT_LOCKS_WCHAN)
+#error One of OPT_LOCKS_SEM or OPT_LOCKS_WCHAN must be enabled.
+#endif
 
 /*
  * Dijkstra-style semaphore.
@@ -77,8 +82,13 @@ struct lock {
         HANGMAN_LOCKABLE(lk_hangman);   /* Deadlock detector hook. */
         // add what you need here
         // (don't forget to mark things volatile as needed)
-
+#if OPT_LOCKS_SEM
         struct semaphore *sem;
+#elif OPT_LOCKS_WCHAN
+	struct wchan *wchan;
+	struct spinlock spinlock;
+        volatile unsigned char is_free; // Equivalent to a sem counter but capped at 1
+#endif
         const struct thread *owner;
 };
 

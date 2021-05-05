@@ -329,6 +329,9 @@ file      thread/threadlist.c
 defoption hangman
 optfile   hangman thread/hangman.c
 
+defoption locks_sem # Implement locks as semaphores
+defoption locks_wchan # Implement locks as spinlocks+wchans
+
 #
 # Process system
 #
