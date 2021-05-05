@@ -199,7 +199,7 @@ lock_release(struct lock *lock)
 
         // Write this
 
-        KASSERT(lock->owner == curthread);
+        KASSERT(lock_do_i_hold(lock));
         V(lock->sem);
 }
 
