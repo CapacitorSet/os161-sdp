@@ -209,7 +209,7 @@ tags:
 OBJS+=$(_S_:T:R).o
 $(_S_:T:R).o: $(_S_)
 	# Check if the filename ends in .S. If it doesn't, run clang, and ignore a nonzero exit code anyway.
-	basename $(_S_) | grep -q '\.S$$' || clang -Wall -Wextra -pedantic $$(echo $(KCFLAGS) | sed s/-ffixed-23//g | sed s/-mno-abicalls//g) -c $(_S_) -o /dev/null || true
+	basename $(_S_) | grep -q '\.S$$' || clang -Wall -Wextra -pedantic $$(echo $(KCFLAGS) -Wno-extra-semi | sed s/-ffixed-23//g | sed s/-mno-abicalls//g) -c $(_S_) -o /dev/null || true
 	$(CC) $(KCFLAGS) -c $(_S_)
 .endfor
 
